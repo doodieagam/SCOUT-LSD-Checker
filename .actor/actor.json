@@ -1,0 +1,30 @@
+{
+  "actorSpecification": 1,
+  "name": "SCOUT-LSD-Checker",
+  "title": "SCOUT LSD Checker",
+  "description": "Cek status LP2B/LSD lahan via GISLINER ATR/BPN",
+  "version": "0.1",
+  "input": {
+    "title": "Input",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+      "latitude": {
+        "title": "Latitude",
+        "type": "number",
+        "description": "Koordinat latitude lahan"
+      },
+      "longitude": {
+        "title": "Longitude",
+        "type": "number",
+        "description": "Koordinat longitude lahan"
+      },
+      "land_id": {
+        "title": "Land ID",
+        "type": "string",
+        "description": "ID lahan dari Supabase"
+      }
+    },
+    "required": ["latitude", "longitude", "land_id"]
+  }
+}
