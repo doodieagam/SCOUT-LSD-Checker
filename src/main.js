@@ -13,61 +13,58 @@ const page = await browser.newPage();
 
 let lsd_status = 'unknown';
 let lsd_confidence = 0;
+let screenshotBase64 = null;
 
 try {
-  // Buka GISLINER
-  await page.goto('https://gisliner.atrbpn.go.id', { 
-    waitUntil: 'networkidle',
-    timeout: 60000 
-  });
+  await page.setViewportSize({ width: 1280, height: 800 });
 
-  await page.waitForTimeout(3000);
-
-  // Inject koordinat ke URL map
   await page.goto(
-    `https://gisliner.atrbpn.go.id/#map=15/${latitude}/${longitude}`,
+    `https://gisliner.atrbpn.go.id/#map=17/${latitude}/${longitude}`,
     { waitUntil: 'networkidle', timeout: 60000 }
   );
 
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(8000);
 
-  // Screenshot hasil
-  const screenshot = await page.screenshot({ 
-    fullPage: false,
-    type: 'png'
-  });
+  const screenshot = await page.screenshot({ type: 'png' });
+  screenshotBase64 = screenshot.toString('base64');
 
-  // Simpan screenshot sebagai output
   await Actor.setValue('screenshot', screenshot, { contentType: 'image/png' });
 
-  // Analisis warna pixel di area koordinat untuk deteksi LP2B
-  // LP2B biasanya ditandai warna hijau/kuning di peta
-  const result = await page.evaluate(() => {
-    const canvas = document.querySelector('canvas');
-    if (!canvas) return null;
-    const ctx = canvas.getContext('2d');
-    const centerX = Math.floor(canvas.width / 2);
-    const centerY = Math.floor(canvas.height / 2);
-    const pixel = ctx.getImageData(centerX, centerY, 10, 10).data;
-    return {
-      r: pixel[0],
-      g: pixel[1], 
-      b: pixel[2]
-    };
-  });
+  const geminiApiKey = process.env.GEMINI_API_KEY;
 
-  console.log('Pixel color at center:', result);
-
-  // Deteksi warna LP2B (hijau dominan = LP2B)
-  if (result) {
-    if (result.g > 150 && result.g > result.r * 1.5 && result.g > result.b * 1.5) {
-      lsd_status = 'LP2B_DETECTED';
-      lsd_confidence = 0.8;
-    } else {
-      lsd_status = 'CLEAR';
-      lsd_confidence = 0.7;
+  const geminiResponse = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            {
+              inline_data: {
+                mime_type: 'image/png',
+                data: screenshotBase64
+              }
+            },
+            {
+              text: `Ini adalah screenshot dari peta GISLINER ATR/BPN Indonesia yang menampilkan status Lahan Sawah Dilindungi (LP2B/LSD). Analisis screenshot ini dan tentukan apakah titik tengah peta berada di area LP2B atau tidak. LP2B biasanya ditandai dengan warna HIJAU atau KUNING pada peta. Area non-LP2B biasanya berwarna PUTIH, ABU-ABU, atau warna lain. Jawab HANYA dalam format JSON: {"lsd_status": "LP2B_DETECTED" atau "CLEAR" atau "UNCLEAR", "confidence": [angka 0.0 sampai 1.0], "reason": "[penjelasan singkat]"}`
+            }
+          ]
+        }]
+      })
     }
-  }
+  );
+
+  const geminiData = await geminiResponse.json();
+  const rawText = geminiData.candidates[0].parts[0].text;
+  const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const parsed = JSON.parse(cleaned);
+
+  lsd_status = parsed.lsd_status;
+  lsd_confidence = parsed.confidence;
+
+  console.log(`Gemini analysis: ${lsd_status} (confidence: ${lsd_confidence})`);
+  console.log(`Reason: ${parsed.reason}`);
 
 } catch (error) {
   console.error('Error:', error.message);
@@ -77,7 +74,6 @@ try {
   await browser.close();
 }
 
-// Output hasil
 await Actor.pushData({
   land_id,
   latitude,
@@ -86,7 +82,5 @@ await Actor.pushData({
   lsd_confidence,
   checked_at: new Date().toISOString()
 });
-
-console.log(`Result: ${lsd_status} (confidence: ${lsd_confidence})`);
 
 await Actor.exit();

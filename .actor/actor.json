@@ -12,17 +12,20 @@
       "latitude": {
         "title": "Latitude",
         "type": "number",
-        "description": "Koordinat latitude lahan"
+        "description": "Koordinat latitude lahan",
+        "editor": "number"
       },
       "longitude": {
         "title": "Longitude",
         "type": "number",
-        "description": "Koordinat longitude lahan"
+        "description": "Koordinat longitude lahan",
+        "editor": "number"
       },
       "land_id": {
         "title": "Land ID",
         "type": "string",
-        "description": "ID lahan dari Supabase"
+        "description": "ID lahan dari Supabase",
+        "editor": "textfield"
       }
     },
     "required": ["latitude", "longitude", "land_id"]
